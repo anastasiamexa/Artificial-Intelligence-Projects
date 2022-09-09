@@ -1,0 +1,112 @@
+from PIL import Image, ImageOps
+import numpy as np
+
+
+# Activation func
+def sigmoid(x):
+    return 1 / (1 + np.exp(-x))
+
+
+def sigmoid_derivative(x):
+    return x * (1 - x)
+
+
+# convert image to binary array
+def convertImg(img):
+    grayscale_img = img.convert('L')
+    grayscale_img = grayscale_img.resize((10, 10))  # gives 10x10 pixels img
+    arr = np.array(grayscale_img)  # gives 10x10 array
+    arr = np.reshape(arr, (100, 1))  # gives 100x1 array
+    threshold = 250  # value for determining whether 1 or 0
+    bin_arr = arr
+    for i in range(100):
+        if arr[i][0] > 250:
+            bin_arr[i][0] = 1 # white
+        else:
+            bin_arr[i][0] = 0 # black
+    return bin_arr
+
+
+letter1_bin_arr = list()  # stores input arrays of first letter
+for i in range(1, 6):
+    letter1_bin_arr.append(convertImg(Image.open('p' + str(i) + '.png')))
+
+letter2_bin_arr = list()  # stores input arrays of second letter
+for i in range(1, 6):
+    letter2_bin_arr.append(convertImg(Image.open('m' + str(i) + '.png')))
+
+training_outputs1 = np.array([[1, 0]]).T  # correct o/p for letter1
+training_outputs2 = np.array([[0, 1]]).T  # correct o/p for letter2
+
+learning_rate = 0.01
+
+synaptic_weights1 = 2*np.random.random(
+    (16, 100)) - 1  # gives a 16x100 array for weights btw first hidden layer and input layer
+synaptic_weights2 = 2*np.random.random(
+    (16, 16)) - 1  # gives a 16x16 array for weights btw first hidden layer and input layer
+synaptic_weights3 = 2*np.random.random(
+    (2, 16)) - 1 # gives a 2x16 array for weights btw first hidden layer and output layer
+
+acceptable_error1 = False
+acceptable_error2 = False
+
+epochs = 0
+
+while True:
+
+    for bin_arr in letter1_bin_arr:
+        hidden_output1 = sigmoid(np.dot(synaptic_weights1, bin_arr))  # gives w(i)*x(i) = (16x100)*(100x1) = (16x1)
+        hidden_output2 = sigmoid(np.dot(synaptic_weights2, hidden_output1))  # gives w'(i)*z1(i) = (16x16)*(16x1) = (16x1)
+        output = sigmoid(np.dot(synaptic_weights3, hidden_output2))  # gives w''(i)*z2(i) = (2x16)*(16x1) = (2x1)
+
+        error = training_outputs1 - output
+        if (error[0] ** 2)/2 + (error[1] ** 2)/2  < 0.0001:
+            acceptable_error1 = True
+            break
+
+        # Computes the new weights
+        dely = (training_outputs1 - output) * sigmoid_derivative(output)
+        delz = np.dot(synaptic_weights3.T, dely) * sigmoid_derivative(hidden_output2)
+        delx = np.dot(synaptic_weights2.T , delz) * sigmoid_derivative(hidden_output1)
+        synaptic_weights3 += (learning_rate * np.dot(dely,hidden_output2.T))
+        synaptic_weights2 += (learning_rate * np.dot(delz, hidden_output1.T))
+        synaptic_weights1 += (learning_rate * np.dot(delx, bin_arr.T))
+
+    for bin_arr in letter2_bin_arr:
+        hidden_output1 = sigmoid(np.dot(synaptic_weights1, bin_arr))  # gives w(i)*x(i) = (16x100)*(100x1) = (16x1)
+        hidden_output2 = sigmoid(np.dot(synaptic_weights2, hidden_output1))  # gives w'(i)*z1(i) = (16x16)*(16x1) = (16x1)
+        output = sigmoid(np.dot(synaptic_weights3, hidden_output2))  # gives w''(i)*z2(i) = (2x16)*(16x1) = (3x1)
+
+        error = training_outputs2 - output
+        if (error[0] ** 2)/2 + (error[1] ** 2)/2 < 0.0001:
+            acceptable_error2 = True
+            break
+
+        dely = (training_outputs2 - output) * sigmoid_derivative(output)
+        delz = np.dot(synaptic_weights3.T, dely) * sigmoid_derivative(hidden_output2)
+        delx = np.dot(synaptic_weights2.T , delz) * sigmoid_derivative(hidden_output1)
+        synaptic_weights3 += (learning_rate * np.dot(dely,hidden_output2.T))
+        synaptic_weights2 += (learning_rate * np.dot(delz, hidden_output1.T))
+        synaptic_weights1 += (learning_rate * np.dot(delx, bin_arr.T))
+
+    epochs += 1
+
+    if acceptable_error1 and acceptable_error2:
+        break
+
+# test sample
+img1 = Image.open('p6.png')
+binary_arr1 = convertImg(img1)
+input_layer1 = binary_arr1
+outputs1 = sigmoid(np.dot( synaptic_weights1 , input_layer1 ))
+input_layer2 = outputs1
+outputs2 = sigmoid(np.dot( synaptic_weights2 , input_layer2 ))
+input_layer3=outputs2
+outputs3 = sigmoid(np.dot( synaptic_weights3 , input_layer3 ))
+
+print("Possibility of being a Π:",outputs3[0])
+print("Possibility of being a Μ:",outputs3[1],"\n")
+if list(outputs3).index(max(outputs3)) == 0:
+    print("It's a Π")
+else:
+    print("It's a Μ")

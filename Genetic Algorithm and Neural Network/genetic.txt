@@ -1,0 +1,247 @@
+import random 
+from tabulate import tabulate
+
+# Create random chromosomes
+def create_population(size, genes_num):
+	population = []
+	for i in range(0,size):
+		temp = ""
+		for j in range(0,genes_num):
+			temp = temp + str(random.getrandbits(1))
+		population.append(temp)
+		
+	return population
+
+# Calculates fitness of parents (the population of similar bits in order)
+def calculate_fitness(population):
+	fitness = []
+	for chromosome in population:
+		fit_count = 0
+		for i in range(0, len(chromosome) - 1):
+			if chromosome[i] == chromosome[i+1]:
+				fit_count += 1
+		print(chromosome,fit_count)
+		fitness.append(fit_count)
+	
+	return fitness
+
+# Find the index of the best parents (low fitness --> a few of similar bits in order)
+def select_best(fitness):
+	parent1 = min(fitness)
+	index_parent1 = fitness.index(parent1)
+	fitness[index_parent1] = 10
+	parent2 = min(fitness)
+	index_parent2 = fitness.index(parent2)
+	fitness[index_parent1] = parent1
+	
+	return index_parent1, index_parent2
+
+# Find the index of the worst parents (high fitness --> a lot of similar bits in order)
+def select_worst(fitness):
+	parent1 = max(fitness)
+	index_parent1 = fitness.index(parent1)
+	fitness[index_parent1] = -1
+	parent2 = max(fitness)
+	index_parent2 = fitness.index(parent2)
+	fitness[index_parent1] = parent1
+	
+	return index_parent1, index_parent2
+
+# Implements the single point crossover technique, to create the offsprings 
+def single_point_crossover(population, index_parent1, index_parent2, mask):
+	temp_parent1 = population[index_parent1]
+	temp_parent2 = population[index_parent2]
+	offspring1 = temp_parent1[:mask] + temp_parent2[mask:]
+	offspring2 = temp_parent2[:mask] + temp_parent1[mask:]
+	offspring1 = list(offspring1)
+	offspring2 = list(offspring2)
+	
+	return offspring1, offspring2
+
+# Applies the mutation of a bit randomly
+def mutation(offspring1, offspring2):
+	# Choose the random bit
+	mutation_gene_1 = random.randint(0, len(offspring1)-1)
+	mutation_gene_2 = random.randint(0, len(offspring2)-1)
+
+
+	if offspring1[mutation_gene_1] == "0":
+		offspring1[mutation_gene_1] = "1"
+	else:
+		offspring1[mutation_gene_1] = "0"
+
+	if offspring2[mutation_gene_2] == "0":
+		offspring2[mutation_gene_2] = "1"
+	else:
+		offspring2[mutation_gene_2] = "0"  
+
+	offspring1, offspring2 = lists_to_strings(offspring1, offspring2)
+	
+	return mutation_gene_1, mutation_gene_2, offspring1, offspring2
+
+# Creates the new population, replacing the worst parents with offsprings	
+def adjust_population(population, index_parent1, index_parent2, offspring1, offspring2):
+	offspring1, offspring2 = lists_to_strings(offspring1, offspring2)
+	population[index_parent1] = offspring1
+	population[index_parent2] = offspring2
+	
+	return population
+
+# Implementation of the genetic algorithm
+def genetic_algo(n,c):
+	i = 1 # generation
+	num_iter = 1000 # max number of iterations
+	fittest_found = False
+	best_solution = ""
+	best_generation = 0
+	mutation_prob = 2 # probability of mutation
+
+	p = create_population(5,n) # create the initial population
+	f = calculate_fitness(p) # calculate the fitness
+	print("\n")
+
+	while i < num_iter + 1: # run until max iterations is reached
+		print("GENERATION: ", i)
+		ip1, ip2 = select_best(f) # find the best parents
+		of1, of2 = single_point_crossover(p, ip1, ip2, c) # create offsprings
+		# Check if mutation happens
+		if random.randint(1, 10) <= mutation_prob:
+			print("Mutation!")
+			m1, m2, of1, of2 = mutation(of1, of2) # create mutated offsprings
+		
+		ip1, ip2 = select_worst(f) # find the worst parents
+		p = adjust_population(p, ip1, ip2, of1, of2) # create the new population
+		f = calculate_fitness(p) # calculate the new fitness
+		print("\n")
+		
+		# If best solution is found
+		if 0 in f and i > 1:
+			best_generation = i
+			fittest_found = True
+			k = 0
+			for j in f:
+				if j == 0:
+					best_solution = p[k] # returns the solution
+				k += 1
+			break
+		
+		
+		i += 1 # move to the next generation
+		
+	return	fittest_found, best_generation, best_solution
+
+def lists_to_strings(lst1, lst2): # self explanatory...
+	str1 = ""
+	for c in lst1:
+		str1 += str(c)
+	str2 = ""
+	for c in lst2:
+		str2 += str(c)
+	
+	return str1, str2
+
+# Main
+num_of_genes = 11
+mask = 5  # crossover mask
+solutions = []
+num_of_solutions = 0
+bit = 0 # the first bit of the solution with 11 number of genes
+while True:
+	if num_of_solutions == 0:
+		# Run the genetic algorithm
+		fittest_found, best_generation, best_solution = genetic_algo(num_of_genes,mask)
+
+		# If max number of iterations is reached, run again
+		while fittest_found == False:
+			print("Reached max iterations!\n")
+			fittest_found, best_generation, best_solution = genetic_algo(num_of_genes,mask)
+	elif num_of_solutions == 2:
+		while bit == int(solutions[0][0]):
+			# Run the genetic algorithm
+			fittest_found, best_generation, best_solution = genetic_algo(num_of_genes,mask)
+			bit = int(best_solution[0])
+			# If max number of iterations is reached, run again
+			while fittest_found == False:
+				print("Reached max iterations!\n")
+				fittest_found, best_generation, best_solution = genetic_algo(num_of_genes,mask)
+				bit = int(best_solution[0])
+			if bit != int(solutions[0][0]): # if bits are compatible
+				solutions.append(best_solution)
+				num_of_solutions += 1
+
+	# If optimal solution found
+	if fittest_found == True:
+		if num_of_solutions == 0:
+			for i in range(0,2):
+				solutions.append(best_solution)
+				num_of_solutions += 1
+			if int(solutions[0][0]) == 1:
+				bit = 1
+		print("Optimal solution found on generation: ", best_generation)
+		print("Best solution: ", best_solution)
+		if num_of_solutions == 2:
+			num_of_genes = 5
+			mask = 3
+		if num_of_solutions == 3:
+			break
+
+print(solutions)
+
+# Setting the 11 x 7 grid
+table = []
+table.append([""," ", " ", " ", " ", " ", ""])
+table.append([""," ", " ", " ", " ", " ", ""])
+table.append([""," ", " ", " ", " ", " ", ""])
+table.append([""," ", " ", " ", " ", " ", ""])
+table.append([""," ", " ", " ", " ", " ", ""])
+table.append([""," ", " ", " ", " ", " ", ""])
+table.append([""," ", " ", " ", " ", " ", ""])
+table.append([""," ", " ", " ", " ", " ", ""])
+table.append([""," ", " ", " ", " ", " ", ""])
+table.append([""," ", " ", " ", " ", " ", ""])
+table.append([""," ", " ", " ", " ", " ", ""])
+
+
+# Replacing ones and zeros
+k = 0
+for i in solutions:
+	str = ""
+	for j in solutions[k]:
+		if j == "0":
+			str = str + "■"
+		elif j == "1":
+			str = str + "□"
+	solutions[k] = str
+	k += 1
+print("\n")
+
+# Same for P and M		
+j = 0
+for i in solutions[0]:
+	table[j][0] = i
+	table[j][6] = i
+	j += 1
+
+# For P
+j = 1
+for i in solutions[2]:
+	table[0][j] = i
+	j += 1
+	
+print(tabulate(table, headers=['1', '2', '3', '4', '5', '6','7']))
+print("\n")
+
+# For M
+j = 1
+for i in solutions[2]:
+	table[0][j] = " "
+	j += 1
+	
+
+table[1][1] = solutions[2][0]
+table[2][2] = solutions[2][1]
+table[3][3] = solutions[2][2]
+table[2][4] = solutions[2][3]
+table[1][5] = solutions[2][4]
+
+print(tabulate(table, headers=['1', '2', '3', '4', '5', '6','7']))
